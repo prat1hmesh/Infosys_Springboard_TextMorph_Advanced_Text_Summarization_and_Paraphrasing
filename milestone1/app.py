@@ -1,130 +1,114 @@
-
-# --- Create the Streamlit App File ---
-app_code = """
 import streamlit as st
-import jwt
-import datetime
 import time
 import re
-# --- Configuration ---
-SECRET_KEY = "super_secret_key_for_demo"  # In production, use environment variable
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
-# --- JWT Utils ---
-def create_access_token(data: dict):
-    to_encode = data.copy()
-    expire = datetime.datetime.utcnow() + datetime.timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
-def verify_token(token: str):
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        return payload
-    except jwt.ExpiredSignatureError:
-        return None
-    except jwt.InvalidTokenError:
-        return None
+import db
+
+if 'db_init' not in st.session_state:
+    db.init_db()
+    st.session_state['db_init'] = True
 # --- Validation Utils ---
 def is_valid_email(email):
-    # Regex for standard email format
-    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$'
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     try:
         if re.match(pattern, email):
             return True
     except:
         return False
     return False
+
 def is_valid_password(password):
-    # Alphanumeric check and min length 8
     if len(password) < 8:
         return False
     if not password.isalnum():
         return False
     return True
-# --- Session State Management ---
-if 'jwt_token' not in st.session_state:
-    st.session_state['jwt_token'] = None
+
+# --- Session State ---
 if 'page' not in st.session_state:
     st.session_state['page'] = 'login'
-# Mock Database (In-memory for demo)
-# Structure: {email: {'password': password, 'username': username, ...}}
-# Also store usernames separately for quick check: {username: email}
-if 'users' not in st.session_state:
-    st.session_state['users'] = {}
-if 'usernames' not in st.session_state:
-    st.session_state['usernames'] = set()
-# --- Styling ---
-st.set_page_config(page_title="Infosys SpringBoard Intern", page_icon="🤖", layout="wide")
+if 'user' not in st.session_state:
+    st.session_state['user'] = None
 
-st.markdown(\"""
-    <style>
-        .stApp {
-            background-color: #0E1117;
-        }
-        h1 {
-            text-align: center;
-            color: #4F8BF9;
-            font-family: 'Inter', sans-serif;
-            margin-bottom: 0.5rem;
-        }
-        h3 {
-            text-align: center;
-            color: #FAFAFA;
-            font-weight: 300;
-            margin-top: 0;
-            font-size: 1.2rem;
-        }
-        .stButton>button {
-            width: 100%;
-            border-radius: 8px;
-            height: 3em;
-            background-color: #4F8BF9;
-            color: white;
-            font-weight: bold;
-            border: none;
-        }
-        .stButton>button:hover {
-            background-color: #3b6ccf;
-        }
-        div[data-testid="stSidebar"] {
-            background-color: #262730;
-        }
-        .error-box {
-            background-color: #ffcccc;
-            color: #cc0000;
-            padding: 10px;
-            border-radius: 5px;
-            margin-bottom: 10px;
-        }
-        /* Chat message styling */
-        .user-msg {
-            text-align: right;
-            background-color: #262730;
-            color: white;
-            padding: 10px;
-            border-radius: 10px;
-            margin: 5px;
-            display: inline-block;
-            max-width: 80%;
-            float: right;
-            clear: both;
-        }
-        .bot-msg {
-            text-align: left;
-            background-color: #4F8BF9;
-            color: white;
-            padding: 10px;
-            border-radius: 10px;
-            margin: 5px;
-            display: inline-block;
-            max-width: 80%;
-            float: left;
-            clear: both;
-        }
-    </style>
-\""", unsafe_allow_html=True)
+# --- Styling ---
+st.set_page_config(page_title="Infosys SpringBoard Intern", page_icon="", layout="wide")
+
+st.markdown("""
+<style>
+
+/* ===== Background ===== */
+.stApp {
+    background: linear-gradient(135deg, #141E30, #243B55);
+    font-family: 'Segoe UI', sans-serif;
+}
+
+/* ===== Titles ===== */
+h1 {
+    text-align: center;
+    color: #ffffff;
+    font-size: 2.5rem;
+    font-weight: 700;
+}
+
+h3 {
+    text-align: center;
+    color: #dcdcdc;
+}
+
+/* ===== Buttons ===== */
+.stButton>button {
+    width: 100%;
+    border-radius: 12px;
+    height: 3em;
+    background: linear-gradient(90deg, #ff512f, #dd2476);
+    color: white;
+    font-weight: bold;
+    border: none;
+    transition: all 0.3s ease-in-out;
+}
+
+.stButton>button:hover {
+    transform: scale(1.05);
+}
+
+/* ===== Inputs ===== */
+.stTextInput>div>div>input {
+    border-radius: 10px;
+    padding: 10px;
+}
+
+/* ===== Sidebar ===== */
+section[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #0f2027, #203a43);
+}
+
+/* ===== Chat Messages ===== */
+.user-msg {
+    text-align: right;
+    background: linear-gradient(90deg, #00c6ff, #0072ff);
+    color: white;
+    padding: 12px;
+    border-radius: 15px 15px 0px 15px;
+    margin: 8px;
+    display: inline-block;
+    max-width: 75%;
+}
+
+.bot-msg {
+    text-align: left;
+    background: linear-gradient(90deg, #ff9966, #ff5e62);
+    color: white;
+    padding: 12px;
+    border-radius: 15px 15px 15px 0px;
+    margin: 8px;
+    display: inline-block;
+    max-width: 75%;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
 # --- Views ---
+
 def login_page():
     st.markdown("<br>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 2, 1])
@@ -139,25 +123,30 @@ def login_page():
             submitted = st.form_submit_button("Sign In")
 
             if submitted:
-                if email in st.session_state['users'] and st.session_state['users'][email]['password'] == password:
-                    username = st.session_state['users'][email]['username']
-                    token = create_access_token({"sub": email, "username": username})
-                    st.session_state['jwt_token'] = token
-                    st.success("Login successful!")
-                    time.sleep(0.5)
+                # Placeholder (will replace with db.authenticate_user)
+                is_locked,wait=db.is_locked(email)
+                if is_locked:
+                    st.error(f"Account locked. Try again in {wait} seconds.")
+                elif db.authenticate_user(email,password):
+                    st.session_state['user']=email
+                    st.success("Login Successfull!")
+                    time.sleep(1)
                     st.rerun()
                 else:
-                    st.error("Invalid email or password")
+                    st.error("Invalid credentialas.")
+                
 
         st.markdown("---")
         c1, c2 = st.columns(2)
         with c1:
             if st.button("Forgot Password?"):
-                st.warning("Password reset feature coming soon!")
+                st.session_state['page'] = 'forgot'
+                st.rerun()
         with c2:
             if st.button("Create an Account"):
                 st.session_state['page'] = 'signup'
                 st.rerun()
+
 def signup_page():
     st.markdown("<br>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 2, 1])
@@ -167,121 +156,122 @@ def signup_page():
 
         with st.form("signup_form"):
             username = st.text_input("Username (Required)")
-            email = st.text_input("Email Address (@domain.com required)")
-            password = st.text_input("Password (min 8 chars, alphanumeric)")
+            email = st.text_input("Email Address")
+            password = st.text_input("Password", type="password")
             confirm_password = st.text_input("Confirm Password", type="password")
             submitted = st.form_submit_button("Sign Up")
 
             if submitted:
-                errors = []
-
-                # Username Validation
-                if not username:
-                    errors.append("Username is mandatory.")
-                elif username in st.session_state['usernames']:
-                    errors.append(f"Username '{username}' is already taken.")
-
-                # Email Validation
-                if not email:
-                    errors.append("Email is mandatory.")
-                elif not is_valid_email(email):
-                    errors.append("Invalid Email format (e.g. user@domain.com).")
-                elif email in st.session_state['users']:
-                    errors.append(f"Email '{email}' is already registered.")
-
-                # Password Validation
-                if not password:
-                    errors.append("Password is mandatory.")
-                elif not is_valid_password(password):
-                    errors.append("Password must be at least 8 characters long and contain only alphanumeric characters.")
-
-                # Confirm Password
                 if password != confirm_password:
-                    errors.append("Passwords do not match.")
-
-                if errors:
-                    for error in errors:
-                        st.error(error)
+                    st.error("Passwords do not match.")
                 else:
-                    # Success
-                    st.session_state['users'][email] = {'password': password, 'username': username}
-                    st.session_state['usernames'].add(username)
+                    # Placeholder (will replace with db.register_user)
+                    if not is_valid_email(email):
+                        st.error("Invalid email format")
+                    elif not is_valid_password(password):
+                        st.error("Password must be 8+ alphanumeric")
+                    elif db.register_user(email,password):
+                        st.success("Account created! Please login.")
+                        time.sleep(1)
+                        st.session_state['page']='login'
+                        st.rerun()
+                    else:
+                        st.error("User already exists.")
 
-                    # Auto-login after signup
-                    token = create_access_token({"sub": email, "username": username})
-                    st.session_state['jwt_token'] = token
-                    st.success("Account created successfully!")
-                    time.sleep(1)
-                    st.rerun()
 
         st.markdown("---")
         if st.button("Back to Login"):
             st.session_state['page'] = 'login'
             st.rerun()
-def dashboard_page():
-    token = st.session_state.get('jwt_token')
-    payload = verify_token(token)
 
-    if not payload:
-        st.session_state['jwt_token'] = None
-        st.warning("Session expired or invalid. Please login again.")
-        time.sleep(1)
+def forgot_page():
+    st.title("Reset Password")
+
+    email = st.text_input("Enter your registered email")
+
+    if st.button("Send OTP"):
+        otp = db.generate_otp(email)
+        st.session_state['reset_email'] = email
+        st.success(f"OTP Generated: {otp}")  # For demo only
+        st.session_state['page'] = 'verify_otp'
         st.rerun()
-        return
-    username = payload.get("username", "User")
 
+def dashboard_page():
     with st.sidebar:
-        st.title("🤖 LLM")
+        st.title("LLM")
         st.markdown("---")
-        if st.button("➕ New Chat", use_container_width=True):
-             st.info("Started new chat!")
+        if st.button("New Chat", use_container_width=True):
+            st.info("Started new chat!")
 
         st.markdown("### History")
         st.markdown("- Project analysis")
         st.markdown("- NLP")
         st.markdown("---")
-        st.markdown("### Settings")
+
         if st.button("Logout", use_container_width=True):
-            st.session_state['jwt_token'] = None
+            st.session_state['user'] = None
+            st.session_state['page'] = 'login'
             st.rerun()
-    # Main Content - Chat Interface
-    st.title(f"Welcome, {username}!")
+
+    st.title("Welcome!")
     st.markdown("### How can I help you today?")
 
-    # Chat container (Simple simulation)
     chat_placeholder = st.empty()
 
     with chat_placeholder.container():
         st.markdown('<div class="bot-msg">Hello! I am LLM. Ask me anything about LLM!</div>', unsafe_allow_html=True)
-        # Assuming we might store chat history in session state later
 
-    # User input area at bottom
     with st.form(key='chat_form', clear_on_submit=True):
         col1, col2 = st.columns([6, 1])
         with col1:
-            user_input = st.text_input("Message LLM...", placeholder="Ask me anything about LLM...", label_visibility="collapsed")
+            user_input = st.text_input("Message LLM...", label_visibility="collapsed")
         with col2:
             submit_button = st.form_submit_button("Send")
 
         if submit_button and user_input:
-             # Just append messages visually for demo
-             st.markdown(f'<div class="user-msg">{user_input}</div>', unsafe_allow_html=True)
-             st.markdown('<div class="bot-msg">I am a demo bot. I received your message!</div>', unsafe_allow_html=True)
-# --- Main App Logic ---
-token = st.session_state.get('jwt_token')
-if token:
-    if verify_token(token):
-        dashboard_page()
-    else:
-        st.session_state['jwt_token'] = None
-        st.session_state['page'] = 'login'
-        st.rerun()
+            st.markdown(f'<div class="user-msg">{user_input}</div>', unsafe_allow_html=True)
+            st.markdown('<div class="bot-msg">I am a demo bot. I received your message!</div>', unsafe_allow_html=True)
+
+# --- Router ---
+if st.session_state['user']:
+    dashboard_page()
 else:
     if st.session_state['page'] == 'signup':
         signup_page()
+    elif st.session_state['page'] == 'forgot':
+        forgot_page()
+    elif st.session_state['page'] == 'verify_otp':
+        verify_otp_page()
+    elif st.session_state['page'] == 'new_password':
+        new_password_page()
     else:
         login_page()
-"""
-with open("app.py", "w") as f:
-    f.write(app_code)
-print("Streamlit app code written to 'app.py'")
+
+
+
+def verify_otp_page():
+    st.title("Verify OTP")
+
+    otp_input = st.text_input("Enter OTP")
+
+    if st.button("Verify"):
+        if db.verify_otp(st.session_state['reset_email'], otp_input):
+            st.session_state['page'] = 'new_password'
+            st.success("OTP Verified")
+            st.rerun()
+        else:
+            st.error("Invalid or Expired OTP")
+
+def new_password_page():
+    st.title("Set New Password")
+
+    new_pass = st.text_input("New Password", type="password")
+
+    if st.button("Update Password"):
+        if is_valid_password(new_pass):
+            db.update_password(st.session_state['reset_email'], new_pass)
+            st.success("Password Updated Successfully")
+            st.session_state['page'] = 'login'
+            st.rerun()
+        else:
+            st.error("Password must be 8+ alphanumeric")
